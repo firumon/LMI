@@ -1,0 +1,28 @@
+{
+    "name": "firumon/lmi",
+    "description": "Laundry Management Interface",
+    "type": "laravel-package",
+    "require": {
+        "laravel/laravel": "5.8.*",
+        "milestone/appframe": "0.9.*"
+    },
+    "authors": [
+        {
+            "name": "Firose Hussain",
+            "email": "github@firumon.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Firumon\\LMI\\LMIServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Firumon\\LMI\\": "src/"
+        }
+    }
+}
