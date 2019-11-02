@@ -23,6 +23,8 @@ class LMIServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $this->loadRoutes();
+        $this->loadViews();
         //$this->loadMigrations();
         //$this->registerEvents();
     }
@@ -32,7 +34,18 @@ class LMIServiceProvider extends ServiceProvider
     private function getFullPath($folder){ return implode('/',[$this->stripSlashes($this->getRootPath()),$this->stripSlashes($folder),""]); }
     private function getProjectMigrationPath(){ return $this->getFullPath('migrations'); }
     private function getProjectConfigFilePath($file){ return $this->getFullPath('config') . $file; }
-//    private function getProjectRoutesPath(){ return $this->getFullPath('routes'); }
+    private function getProjectRoutesPath(){ return $this->getFullPath('routes') . 'web.php'; }
+    private function getProjectViewsPath(){ return $this->getFullPath('views'); }
+
+    private function loadRoutes(){
+        $source = $this->getProjectRoutesPath();
+        $this->loadRoutesFrom($source);
+    }
+
+    private function loadViews(){
+        $source = $this->getProjectViewsPath();
+        $this->loadViewsFrom($source,'lmi');
+    }
 
     private function loadMigrations(){
         $source = $this->getProjectMigrationPath();
