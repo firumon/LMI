@@ -31,7 +31,7 @@
             </div>
         </nav>
     </header>
-    <main class="container" style="min-height: 100vh">
+    <main class="container">
         <section id="services" class="clear">
             @yield('content')
         </section>

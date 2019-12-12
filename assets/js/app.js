@@ -3017,6 +3017,61 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 /* harmony default export */ __webpack_exports__["default"] = ({
   name: "HS",
   data: function data() {
@@ -3026,11 +3081,18 @@ __webpack_require__.r(__webpack_exports__);
         items: {},
         services: {},
         providers: {},
-        provider_services: {}
+        provider_services: {},
+        statuses: ['unassigned', 'new', 'processing', 'completed']
       },
-      provider: null,
+      selected_job: null,
       unassigned: {},
-      assigned: {}
+      assigned: {},
+      completed: [],
+      status_class: {
+        "new": 'teal',
+        processing: 'amber accent-3 pulse',
+        completed: 'disabled'
+      }
     };
   },
   computed: {
@@ -3044,6 +3106,8 @@ __webpack_require__.r(__webpack_exports__);
       var _this = this;
 
       var OIs = {};
+      this.unassigned = Object.assign({});
+      this.assigned = Object.assign({});
       this.data.forEach(function (_ref) {
         var id = _ref.id,
             name = _ref.name,
@@ -3058,7 +3122,8 @@ __webpack_require__.r(__webpack_exports__);
           item: item.id,
           service: service.id,
           name: name,
-          order: order
+          order: order,
+          status: _this.getAssignedStatus(assigned)
         };
 
         _this.addMasterItem('items', item.id, item.name);
@@ -3068,59 +3133,109 @@ __webpack_require__.r(__webpack_exports__);
         if (!assigned.length) _this.addUnassigned(service.id, id);else {
           var user = assigned[0]['user'];
 
-          _this.addMasterItem('provider_services', user.id, user['services'].map(function (_ref2) {
-            var id = _ref2.id;
-            return id;
-          }));
-
           _this.addProviderJob(user.id, service.id, id);
+
+          OIs[id].provider = user.id;
         }
       });
       return OIs;
     }
   },
   methods: {
+    fetchJobs: function fetchJobs() {
+      var _this2 = this;
+
+      axios.post('hub/jobs', {
+        uuid: this.uuid
+      }).then(function (_ref2) {
+        var data = _ref2.data;
+        return _this2.data = data;
+      });
+    },
     addMasterItem: function addMasterItem(item, id, name) {
       if (!this.masters[item].hasOwnProperty(id)) this.$set(this.masters[item], id, name);
     },
     addUnassigned: function addUnassigned(service, job) {
       if (!this.unassigned.hasOwnProperty(service)) this.$set(this.unassigned, service, []);
-      this.unassigned[service].push(job);
+      if (this.unassigned[service].indexOf(job) === -1) this.unassigned[service].push(job);
     },
     addProviderJob: function addProviderJob(provider, service, job) {
       if (!this.assigned.hasOwnProperty(provider)) this.$set(this.assigned, provider, {});
       if (!this.assigned[provider].hasOwnProperty(service)) this.$set(this.assigned[provider], service, []);
-      this.assigned[provider][service].push(job);
+      if (this.assigned[provider][service].indexOf(job) === -1) this.assigned[provider][service].push(job);
     },
-    getAssigned: function getAssigned(pid) {
-      return this.assigned[pid];
+    getAssignedStatus: function getAssignedStatus(assigned) {
+      if (!assigned.length) return this.masters.statuses[0];
+      if (assigned[0].end_at) return this.masters.statuses[3];
+      if (assigned[0].start_at) return this.masters.statuses[2];
+      return this.masters.statuses[1];
+    },
+    advanceProgress: function advanceProgress() {
+      var _this3 = this;
+
+      axios.post('job/advance', {
+        ois: this.selected_job,
+        uuid: this.uuid,
+        user: this.OIS[this.selected_job].provider
+      }).then(function (_ref3) {
+        var data = _ref3.data;
+        return _this3.updateJob(data);
+      });
+    },
+    updateJob: function updateJob(data) {
+      var _this4 = this;
+
+      var dataIdx = this.data.findIndex(function (_ref4) {
+        var id = _ref4.id;
+        return id === data.ois;
+      });
+      if (!this.data[dataIdx]['assigned'].length) return this.data[dataIdx]['assigned'].push(data);
+      this.data[dataIdx]['assigned'].splice(0, 1);
+      this.data[dataIdx]['assigned'].push(data);
+      if (data.end_at) setTimeout(function () {
+        return _this4.completed.push(data.ois);
+      }, 5000);
+    },
+    provider_unassigned: function provider_unassigned(provider) {
+      var _this5 = this;
+
+      var services = this.masters.provider_services[provider];
+      var unassigned_services = Object.keys(this.unassigned).filter(function (service) {
+        return services.includes(parseInt(service));
+      }); //console.error(provider,services,unassigned_services,unassigned_services.map(service => this.unassigned[service]).flat(1));
+
+      return unassigned_services.map(function (service) {
+        return _this5.unassigned[service];
+      }).flat(1);
     }
   },
   mounted: function mounted() {
-    var _this2 = this;
+    var _this6 = this;
 
-    axios.post('hub/jobs', {
-      uuid: this.uuid
-    }).then(function (_ref3) {
-      var data = _ref3.data;
-      return _this2.data = data;
-    });
     axios.post('hub/providers', {
       uuid: this.uuid
-    }).then(function (_ref4) {
-      var data = _ref4.data;
-      return _this2.masters.providers = data && Array.isArray(data) ? toObj(data.map(function (_ref5) {
-        var id = _ref5.id;
-        return id;
-      }), data.map(function (_ref6) {
-        var name = _ref6.name;
-        return name;
-      })) : {};
+    }).then(function (_ref5) {
+      var data = _ref5.data;
+      return data.forEach(function (_ref6) {
+        var id = _ref6.id,
+            name = _ref6.name,
+            services = _ref6.services;
+
+        _this6.addMasterItem('providers', id, name);
+
+        _this6.addMasterItem('provider_services', id, services.map(function (_ref7) {
+          var id = _ref7.id;
+          return id;
+        }));
+      });
     })["finally"](function () {
       return M.Tabs.init(document.querySelector('.tabs'), {
         swipeable: true
       });
     });
+    this.fetchJobs();
+    setInterval(this.fetchJobs, 30000);
+    M.Modal.init(document.getElementById('job_progress'));
   }
 });
 
@@ -32599,39 +32714,33 @@ var render = function() {
   var _c = _vm._self._c || _h
   return _c(
     "section",
-    { staticStyle: { "margin-top": "10px" } },
+    {
+      directives: [
+        { name: "show", rawName: "v-show", value: _vm.OIS, expression: "OIS" }
+      ],
+      staticStyle: { "margin-top": "10px" }
+    },
     [
       _c(
         "ul",
         { staticClass: "tabs" },
         _vm._l(_vm.masters.providers, function(name, pid) {
-          return _c(
-            "li",
-            {
-              staticClass: "tab",
-              on: {
-                click: function($event) {
-                  _vm.provider = pid
-                }
-              }
-            },
-            [
-              _c(
-                "a",
-                {
-                  key: "#provider-tab-" + pid,
-                  attrs: { href: "#provider-" + pid }
-                },
-                [
-                  _c("img", {
-                    staticClass: "circle left",
-                    attrs: { src: "/v/image/User/" + pid, height: "48" }
-                  }),
-                  _vm._v("\n                " + _vm._s(name) + "\n            ")
-                ]
-              )
-            ]
-          )
+          return _c("li", { staticClass: "tab" }, [
+            _c(
+              "a",
+              {
+                key: "#provider-tab-" + pid,
+                attrs: { href: "#provider-" + pid }
+              },
+              [
+                _c("img", {
+                  staticClass: "circle left",
+                  attrs: { src: "/v/image/User/" + pid, height: "48" }
+                }),
+                _vm._v("\n                " + _vm._s(name) + "\n            ")
+              ]
+            )
+          ])
         }),
         0
       ),
@@ -32643,58 +32752,531 @@ var render = function() {
             key: "#provider-tab-content-" + pid,
             attrs: { id: "provider-" + pid }
           },
-          _vm._l(_vm.assigned[pid], function(jobs, service) {
-            return _c(
-              "blockquote",
-              { key: "provider-" + pid + "-service-" + service },
-              [
-                _c("strong", [_vm._v(_vm._s(_vm.masters.services[service]))]),
-                _vm._v(" "),
-                _c(
-                  "ul",
-                  { staticClass: "collection" },
-                  _vm._l(jobs, function(job) {
-                    return _c(
-                      "li",
-                      {
-                        key: "provider-" + pid + "-job-" + job,
-                        staticClass: "collection-item avatar"
-                      },
-                      [
-                        _c(
-                          "span",
+          [
+            _vm._l(_vm.assigned[pid], function(jobs, service) {
+              return _c(
+                "blockquote",
+                { key: "provider-" + pid + "-service-" + service },
+                [
+                  _c("strong", [_vm._v(_vm._s(_vm.masters.services[service]))]),
+                  _vm._v(" "),
+                  _c(
+                    "ul",
+                    { staticClass: "collection" },
+                    [
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
                           {
-                            staticClass: "badge new",
-                            attrs: { "data-badge-caption": "new" }
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
                           },
-                          [_vm._v(_vm._s(_vm.OIS[job].quantity))]
-                        ),
-                        _vm._v(" "),
-                        _c("img", {
-                          staticClass: "circle",
-                          attrs: { src: "/v/image/Item/" + _vm.OIS[job].item }
-                        }),
-                        _vm._v(" "),
-                        _c("span", { staticClass: "title" }, [
-                          _vm._v(_vm._s(_vm.OIS[job].order))
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      }),
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
+                          {
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
+                          },
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      }),
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
+                          {
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
+                          },
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      }),
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
+                          {
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
+                          },
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      }),
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
+                          {
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
+                          },
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      }),
+                      _vm._l(jobs, function(job) {
+                        return _c(
+                          "li",
+                          {
+                            directives: [
+                              {
+                                name: "show",
+                                rawName: "v-show",
+                                value: !_vm.completed.includes(job),
+                                expression: "!completed.includes(job)"
+                              }
+                            ],
+                            key: "provider-" + pid + "-job-" + job,
+                            staticClass: "collection-item avatar"
+                          },
+                          [
+                            _c("img", {
+                              staticClass: "circle",
+                              attrs: {
+                                src: "/v/image/Item/" + _vm.OIS[job].item
+                              }
+                            }),
+                            _vm._v(" "),
+                            _c("span", { staticClass: "title" }, [
+                              _vm._v(_vm._s(_vm.OIS[job].order))
+                            ]),
+                            _vm._v(" "),
+                            _c("p", [
+                              _vm._v(
+                                _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                              )
+                            ]),
+                            _vm._v(" "),
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "btn-small secondary-content waves-effect waves-light modal-trigger",
+                                class: _vm.status_class[_vm.OIS[job].status],
+                                staticStyle: { "font-size": "9px" },
+                                attrs: { "data-target": "job_progress" },
+                                on: {
+                                  click: function($event) {
+                                    _vm.selected_job = job
+                                  }
+                                }
+                              },
+                              [
+                                _vm._v(
+                                  _vm._s(_vm.OIS[job].quantity) +
+                                    " - " +
+                                    _vm._s(_vm.OIS[job].status)
+                                )
+                              ]
+                            )
+                          ]
+                        )
+                      })
+                    ],
+                    2
+                  )
+                ]
+              )
+            }),
+            _vm._v(" "),
+            _vm.provider_unassigned(pid).length
+              ? _c(
+                  "blockquote",
+                  [
+                    _c("strong", [_vm._v("Unassigned")]),
+                    _vm._v(" "),
+                    _vm._l(_vm.provider_unassigned(pid), function(job) {
+                      return _c("div", { staticClass: "card" }, [
+                        _c("div", { staticClass: "card-content" }, [
+                          _c("span", { staticClass: "card-title" }, [
+                            _vm._v(_vm._s(_vm.OIS[job].name))
+                          ]),
+                          _vm._v(
+                            "\n                    Order: " +
+                              _vm._s(_vm.OIS[job].order)
+                          ),
+                          _c("br"),
+                          _vm._v(
+                            "\n                    Service: " +
+                              _vm._s(_vm.masters.services[_vm.OIS[job].service])
+                          ),
+                          _c("br"),
+                          _vm._v(
+                            "\n                    Item: " +
+                              _vm._s(_vm.masters.items[_vm.OIS[job].item])
+                          ),
+                          _c("br"),
+                          _vm._v(
+                            "\n                    Quantity: " +
+                              _vm._s(_vm.OIS[job].quantity) +
+                              "\n                "
+                          )
                         ]),
                         _vm._v(" "),
-                        _c("p", [
-                          _vm._v(_vm._s(_vm.OIS[job].name)),
-                          _c("br"),
-                          _vm._v(_vm._s(_vm.masters.items[_vm.OIS[job].item]))
+                        _c("div", { staticClass: "card-action" }, [
+                          _c(
+                            "button",
+                            {
+                              staticClass:
+                                "btn-small secondary-content waves-effect waves-light modal-trigger",
+                              class: _vm.status_class[_vm.OIS[job].status],
+                              staticStyle: { "font-size": "9px" },
+                              attrs: { "data-target": "job_progress" },
+                              on: {
+                                click: function($event) {
+                                  _vm.selected_job = job
+                                }
+                              }
+                            },
+                            [
+                              _vm._v(
+                                _vm._s(_vm.OIS[job].quantity) +
+                                  " - " +
+                                  _vm._s(_vm.OIS[job].status)
+                              )
+                            ]
+                          )
                         ])
-                      ]
-                    )
-                  }),
-                  0
+                      ])
+                    })
+                  ],
+                  2
                 )
-              ]
-            )
-          }),
-          0
+              : _vm._e()
+          ],
+          2
         )
-      })
+      }),
+      _vm._v(" "),
+      _c("div", { staticClass: "modal", attrs: { id: "job_progress" } }, [
+        _vm.selected_job
+          ? _c("div", { staticClass: "modal-content" }, [
+              _c("h4", [_vm._v(_vm._s(_vm.OIS[_vm.selected_job].name))]),
+              _vm._v(" "),
+              _c("p", [
+                _vm._v(
+                  "\n                Order: " +
+                    _vm._s(_vm.OIS[_vm.selected_job].order)
+                ),
+                _c("br"),
+                _vm._v(
+                  "\n                Service: " +
+                    _vm._s(
+                      _vm.masters.services[_vm.OIS[_vm.selected_job].service]
+                    )
+                ),
+                _c("br"),
+                _vm._v(
+                  "\n                Item: " +
+                    _vm._s(_vm.masters.items[_vm.OIS[_vm.selected_job].item])
+                ),
+                _c("br"),
+                _vm._v(
+                  "\n                Quantity: " +
+                    _vm._s(_vm.OIS[_vm.selected_job].quantity) +
+                    "\n            "
+                )
+              ]),
+              _vm._v(" "),
+              _vm.OIS[_vm.selected_job].status !==
+              _vm.masters.statuses.slice(-1).pop()
+                ? _c("p", { staticClass: "center-align" }, [
+                    _vm._v("You are about to change status to"),
+                    _c("br"),
+                    _c("strong", [
+                      _vm._v(
+                        _vm._s(
+                          _vm.masters.statuses[
+                            _vm.masters.statuses.indexOf(
+                              _vm.OIS[_vm.selected_job].status
+                            ) + 1
+                          ].toUpperCase()
+                        )
+                      )
+                    ])
+                  ])
+                : _vm._e()
+            ])
+          : _vm._e(),
+        _vm._v(" "),
+        _c("div", { staticClass: "modal-footer" }, [
+          _c(
+            "a",
+            {
+              staticClass: "modal-close waves-effect waves-green btn-flat",
+              attrs: { href: "#!" }
+            },
+            [_vm._v("Close")]
+          ),
+          _vm._v(" "),
+          _vm.selected_job &&
+          _vm.OIS[_vm.selected_job].status !==
+            _vm.masters.statuses.slice(-1).pop()
+            ? _c(
+                "button",
+                {
+                  staticClass:
+                    "modal-close waves-effect waves-green btn-small deep-purple darken-2",
+                  on: { click: _vm.advanceProgress }
+                },
+                [
+                  _vm._v(
+                    "Yes, " +
+                      _vm._s(
+                        _vm.selected_job
+                          ? _vm.masters.statuses[
+                              _vm.masters.statuses.indexOf(
+                                _vm.OIS[_vm.selected_job].status
+                              ) + 1
+                            ].toUpperCase()
+                          : "--"
+                      )
+                  )
+                ]
+              )
+            : _vm._e()
+        ])
+      ])
     ],
     2
   )

@@ -18,5 +18,6 @@
             Route::post('hub/authenticate','HubController@apiAuthenticate');
             Route::post('hub/jobs','OrderItemServiceController@apiJobs');
             Route::post('hub/providers','HubController@apiProviders');
+            Route::post('job/advance','OrderItemServiceController@apiAdvance');
         });
     });
